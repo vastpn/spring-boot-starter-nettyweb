@@ -14,6 +14,7 @@ import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
+import javax.servlet.ServletContext;
 import java.util.Optional;
 
 /**
@@ -29,7 +30,7 @@ import java.util.Optional;
  *   1.0   2020/5/24 15:37        tanlin            new file.
  * <pre>
  */
-public final class NettyChannelUtils {
+public final class NettyChannelUtil {
 
     /**
      * <pre>

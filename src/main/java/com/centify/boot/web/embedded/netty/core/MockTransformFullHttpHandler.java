@@ -1,22 +1,23 @@
 package com.centify.boot.web.embedded.netty.core;
 
-import com.centify.boot.web.embedded.netty.utils.NettyChannelUtils;
+import com.centify.boot.web.embedded.netty.utils.NettyChannelUtil;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
+import javax.servlet.Servlet;
+import javax.servlet.ServletContext;
 import java.net.InetSocketAddress;
 
 /**
  * <pre>
  * <b>FullHttpRequest 转换为MockHttpServletRequest </b>
- * <b>Describe:TODO</b>
+ * <b>Describe:</b>
  *
  * <b>Author: tanlin [2020/5/24 15:13]</b>
  * <b>Copyright:</b> Copyright 2008-2026 http://www.jinvovo.com Technology Co., Ltd. All rights reserved.
@@ -33,13 +34,8 @@ public class MockTransformFullHttpHandler extends SimpleChannelInboundHandler<Fu
 
     @Override
     protected void channelRead0(ChannelHandlerContext chc, FullHttpRequest fullHttpRequest) throws Exception {
-        System.out.println("2");
-        /**验证解码*/
-        if (!fullHttpRequest.decoderResult().isSuccess()) {
-            NettyChannelUtils.sendResult(chc, HttpResponseStatus.BAD_REQUEST, fullHttpRequest, null);
-            return;
-        }
-        chc.fireChannelRead(NettyChannelUtils.createServletRequest(fullHttpRequest));
+//        System.out.println("2");
+        chc.fireChannelRead(NettyChannelUtil.createServletRequest(fullHttpRequest));
     }
 
     /**

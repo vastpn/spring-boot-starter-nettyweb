@@ -2,7 +2,7 @@ package com.centify.boot.web.embedded.netty.factory;
 
 import com.centify.boot.web.embedded.netty.context.NettyServletContext;
 import com.centify.boot.web.embedded.netty.core.NettyContainer;
-import com.centify.boot.web.embedded.netty.utils.ReflectionUtils;
+import com.centify.boot.web.embedded.netty.utils.ReflectionUtil;
 import io.netty.bootstrap.Bootstrap;
 import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
@@ -86,14 +86,14 @@ public class NettyServletServletWebServerFactory extends AbstractServletWebServe
         InetSocketAddress address = new InetSocketAddress(port);
         log.info("Server initialized with port: {}" ,port);
         /**初始化容器并返回*/
-        return new NettyContainer(address, context);
+        return new NettyContainer(address);
     }
 
     private void dispatcherServletInit() throws ServletException {
         /**从spring上下文获取DispatcherServlet，对其进行处理*/
         DispatcherServlet dispatcherServlet = servletWebServerApplicationContext.getBean(DispatcherServlet.class);
         MockServletConfig myServletConfig = new MockServletConfig();
-        ReflectionUtils.setFieldValue(dispatcherServlet, "config", myServletConfig);
+        ReflectionUtil.setFieldValue(dispatcherServlet, "config", myServletConfig);
         /**初始化servlet*/
         dispatcherServlet.init();
     }

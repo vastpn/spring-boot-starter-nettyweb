@@ -1,7 +1,7 @@
 package com.centify.boot.web.embedded.netty.core;
 
 import com.centify.boot.web.embedded.netty.constant.NettyConstant;
-import com.centify.boot.web.embedded.netty.utils.NettyChannelUtils;
+import com.centify.boot.web.embedded.netty.utils.NettyChannelUtil;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
@@ -17,7 +17,8 @@ import java.net.InetSocketAddress;
 /**
  * <pre>
  * <b>FullHttpRequest 转换为MockHttpServletRequest </b>
- * <b>Describe:TODO</b>
+ * <b>Describe:线程非安全，不能使用@Component、@ChannelHandler.Sharable
+ * </b>
  *
  * <b>Author: tanlin [2020/5/24 15:13]</b>
  * <b>Copyright:</b> Copyright 2008-2026 http://www.jinvovo.com Technology Co., Ltd. All rights reserved.
@@ -31,13 +32,12 @@ import java.net.InetSocketAddress;
 @Component
 @ChannelHandler.Sharable
 public class FaviconHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
-
     @Override
     protected void channelRead0(ChannelHandlerContext chc, FullHttpRequest fullHttpRequest) throws Exception {
-        System.out.println("1");
+//        System.out.println("1");
         /**验证解码*/
         if (!fullHttpRequest.decoderResult().isSuccess()) {
-            NettyChannelUtils.sendResult(chc, HttpResponseStatus.BAD_REQUEST, fullHttpRequest, null);
+            NettyChannelUtil.sendResult(chc, HttpResponseStatus.BAD_REQUEST, fullHttpRequest, null);
             return;
         }
         //TODO 后期支持 YML配置 动态启用、禁用 /favicon.ico 请求
@@ -45,7 +45,7 @@ public class FaviconHandler extends SimpleChannelInboundHandler<FullHttpRequest>
             chc.close();
             return ;
         }
-        chc.fireChannelRead(NettyChannelUtils.createServletRequest(fullHttpRequest));
+        chc.fireChannelRead(fullHttpRequest);
     }
 
     /**

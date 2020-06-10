@@ -22,7 +22,7 @@ import java.util.Locale;
  *   1.0   2020/6/8 9:48        tanlin            new file.
  * <pre>
  */
-public class ReflectionUtils {
+public class ReflectionUtil {
 
     /**
      * 对象的getter、setter操作

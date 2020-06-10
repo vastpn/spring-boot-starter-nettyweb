@@ -22,17 +22,17 @@ import java.util.Map;
  * <pre>
  */
 @Component
-public class SpringContextUtils implements ApplicationContextAware {
+public class SpringContextUtil implements ApplicationContextAware {
 
-	private static ApplicationContext applicationContext = null;
+	private static ApplicationContext application = null;
 
 	@Override
 	public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-		SpringContextUtils.applicationContext = applicationContext;
+		SpringContextUtil.application = applicationContext;
 	}
 
-	public static ApplicationContext getApplicationContext() {
-		return applicationContext;
+	public static ApplicationContext getApplication() {
+		return application;
 	}
 
 	/**
@@ -48,7 +48,7 @@ public class SpringContextUtils implements ApplicationContextAware {
 	 */
 	public static <T> T getBean(String id) {
 
-		return (T) applicationContext.getBean(id);
+		return (T) application.getBean(id);
 	}
 
 	/**
@@ -64,7 +64,7 @@ public class SpringContextUtils implements ApplicationContextAware {
 	 */
     @SuppressWarnings("unchecked")
     public static <T> T getBean(Class<T> clazz) {
-        return (T) applicationContext.getBean(clazz);
+        return (T) application.getBean(clazz);
     }
 
 	/**
@@ -80,7 +80,7 @@ public class SpringContextUtils implements ApplicationContextAware {
 	 * <pre>
 	 */
 	public static Object getBean(String name, Class requiredType) throws BeansException {
-		return applicationContext.getBean(name, requiredType);
+		return application.getBean(name, requiredType);
 	}
 
 	/**
@@ -95,7 +95,7 @@ public class SpringContextUtils implements ApplicationContextAware {
 	 * <pre>
 	 */
 	public static boolean containsBean(String name) {
-		return applicationContext.containsBean(name);
+		return application.containsBean(name);
 	}
 
 
@@ -111,7 +111,7 @@ public class SpringContextUtils implements ApplicationContextAware {
 	 * <pre>
 	 */
 	public static boolean isSingleton(String name) throws NoSuchBeanDefinitionException {
-		return applicationContext.isSingleton(name);
+		return application.isSingleton(name);
 	}
 
 	/**
@@ -126,7 +126,7 @@ public class SpringContextUtils implements ApplicationContextAware {
 	 * <pre>
 	 */
 	public static Class getType(String name) throws NoSuchBeanDefinitionException {
-		return applicationContext.getType(name);
+		return application.getType(name);
 	}
 
 	/**
@@ -141,7 +141,7 @@ public class SpringContextUtils implements ApplicationContextAware {
 	 * <pre>
 	 */
     public   static <T> Map<String, T> getBeansByType(Class<T> t) {
-        Map<String, T> beans = applicationContext.getBeansOfType(t);
+        Map<String, T> beans = application.getBeansOfType(t);
         return beans;
     }
 }

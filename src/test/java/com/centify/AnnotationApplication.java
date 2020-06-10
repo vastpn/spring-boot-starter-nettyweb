@@ -2,8 +2,7 @@ package com.centify;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -37,7 +36,8 @@ public class AnnotationApplication {
 
     @RequestMapping(value = "/test")
     public Map test(HttpServletRequest request, HttpServletResponse response) throws IOException {
-//        System.out.println("业务处理---》");
+//        System.out.println("Servlet 请求、响应参数 GET");
+
         Map result = new HashMap();
         result.put("name", "愚公");
         result.put("data", new Date());
@@ -49,5 +49,26 @@ public class AnnotationApplication {
         result.put("age", 20);
 
         return result;
+    }
+    @GetMapping("/{a}/{b}")
+    public Integer get(@PathVariable Integer a, @PathVariable Integer b) {
+//        System.out.println("@PathVariable 参数");
+        return a + b;
+    }
+    @GetMapping("/reqparam")
+    public Map params(@RequestParam("id") Integer id, @RequestParam("name") String name, @RequestParam("inTime") String inTime){
+        Map result = new HashMap();
+        result.put("id",id);
+        result.put("name",name);
+        result.put("inTime",inTime);
+        return result;
+    }
+    @PostMapping("/reqbody")
+    public User getDefault(@RequestBody User user){
+        return user;
+    }
+    @PostMapping("/form")
+    public User getForm(User user){
+        return user;
     }
 }

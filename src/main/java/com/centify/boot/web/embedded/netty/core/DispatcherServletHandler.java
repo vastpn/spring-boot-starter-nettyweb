@@ -1,13 +1,11 @@
 package com.centify.boot.web.embedded.netty.core;
 
-import com.centify.boot.web.embedded.netty.filter.NettyServletWrapper;
-import com.centify.boot.web.embedded.netty.utils.NettyChannelUtils;
-import com.centify.boot.web.embedded.netty.utils.SpringContextUtils;
+import com.centify.boot.web.embedded.netty.utils.NettyChannelUtil;
+import com.centify.boot.web.embedded.netty.utils.SpringContextUtil;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.util.CharsetUtil;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -32,18 +30,17 @@ import org.springframework.web.servlet.DispatcherServlet;
 @Log4j2
 @Component
 @ChannelHandler.Sharable
-public class DispatcherServletHandler extends SimpleChannelInboundHandler<NettyServletWrapper> {
+public class DispatcherServletHandler extends SimpleChannelInboundHandler<MockHttpServletRequest> {
 
 	@Override
-	protected void channelRead0(ChannelHandlerContext chc, NettyServletWrapper rrw) throws Exception {
-		System.out.println("4");
-//        MockHttpServletRequest servletRequest = (MockHttpServletRequest) rrw.getServletRequest();
-        MockHttpServletResponse servletResponse = (MockHttpServletResponse) rrw.getServletResponse();
+	protected void channelRead0(ChannelHandlerContext chc, MockHttpServletRequest rrw) throws Exception {
+//		System.out.println("4");
+        MockHttpServletResponse servletResponse = new MockHttpServletResponse();
 
-		SpringContextUtils.getApplicationContext().getBean(DispatcherServlet.class)
-				.service(rrw.getServletRequest(), servletResponse);
+		SpringContextUtil.getApplication().getBean(DispatcherServlet.class)
+				.service(rrw, servletResponse);
 
-		NettyChannelUtils.sendResult(
+		NettyChannelUtil.sendResult(
 				chc,
 				HttpResponseStatus.valueOf(servletResponse.getStatus()),
 				rrw,
