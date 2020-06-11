@@ -37,7 +37,7 @@ public class FaviconHandler extends SimpleChannelInboundHandler<FullHttpRequest>
 //        System.out.println("1");
         /**验证解码*/
         if (!fullHttpRequest.decoderResult().isSuccess()) {
-            NettyChannelUtil.sendResult(chc, HttpResponseStatus.BAD_REQUEST, fullHttpRequest, null);
+            NettyChannelUtil.sendResultBytes(chc, HttpResponseStatus.BAD_REQUEST, fullHttpRequest, null);
             return;
         }
         //TODO 后期支持 YML配置 动态启用、禁用 /favicon.ico 请求

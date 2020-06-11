@@ -9,6 +9,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.*;
 import io.netty.util.CharsetUtil;
 import io.netty.util.ReferenceCountUtil;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -50,7 +51,7 @@ public final class NettyChannelUtil {
      * @return void
      * <pre>
      */
-    public static void sendResult(ChannelHandlerContext chc, HttpResponseStatus status, Object request, byte[] result) {
+    public static void sendResultBytes(ChannelHandlerContext chc, HttpResponseStatus status, Object request, byte[] result) {
         ByteBuf content = null;
         if (result == null){
             Unpooled.wrappedBuffer("".getBytes());
@@ -59,7 +60,7 @@ public final class NettyChannelUtil {
         }
         FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status, content);
         /**设置头信息的的MIME类型*/
-        response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json;utf-8");
+        response.headers().set(HttpHeaderNames.CONTENT_TYPE, MediaType.APPLICATION_JSON_UTF8_VALUE);
         /**设置要返回的内容长度*/
         response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.readableBytes());
         /**返回客户端并监听关闭*/
@@ -87,12 +88,26 @@ public final class NettyChannelUtil {
      * @return void
      * <pre>
      */
-    public static void sendResult(ChannelHandlerContext chc, HttpResponseStatus status, Object request, Object result) {
+    public static void sendResultObject(ChannelHandlerContext chc, HttpResponseStatus status, Object request, Object result) {
         ByteBuf content = Unpooled.wrappedBuffer(JSONObject.toJSONString(result).getBytes(CharsetUtil.UTF_8));
 
         FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status, content);
         /**设置头信息的的MIME类型*/
-        response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json;utf-8");
+        response.headers().set(HttpHeaderNames.CONTENT_TYPE, MediaType.APPLICATION_JSON_UTF8_VALUE);
+        /**设置要返回的内容长度*/
+        response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.readableBytes());
+        /**返回客户端并监听关闭*/
+        chc.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+        /**释放从InBound里读取的ByteBuf*/
+        if (request != null) {
+            ReferenceCountUtil.release(request);
+        }
+    }
+
+    public static void sendResultByteBuf(ChannelHandlerContext chc, HttpResponseStatus status, Object request, ByteBuf content) {
+        FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status, content);
+        /**设置头信息的的MIME类型*/
+        response.headers().set(HttpHeaderNames.CONTENT_TYPE, MediaType.APPLICATION_JSON_UTF8_VALUE);
         /**设置要返回的内容长度*/
         response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.readableBytes());
         /**返回客户端并监听关闭*/

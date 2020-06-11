@@ -37,7 +37,8 @@ import java.net.InetSocketAddress;
  * <pre>
  */
 @Log4j2
-public class NettyServletServletWebServerFactory extends AbstractServletWebServerFactory implements ConfigurableNettyServletWebServerFactory, ResourceLoaderAware {
+public class NettyServletServletWebServerFactory extends AbstractServletWebServerFactory
+        implements ConfigurableNettyServletWebServerFactory, ResourceLoaderAware {
 
     /**资源加载器*/
     private ResourceLoader resourceLoader;
