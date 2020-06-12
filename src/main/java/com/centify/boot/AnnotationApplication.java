@@ -1,4 +1,4 @@
-package com.centify;
+package com.centify.boot;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -25,7 +25,6 @@ import java.util.Map;
  *   1.0   2020/6/2 14:38        tanlin            new file.
  * <pre>
  */
-//@ServletComponentScan
 @RestController
 @SpringBootApplication
 public class AnnotationApplication {
@@ -36,7 +35,7 @@ public class AnnotationApplication {
 
     @RequestMapping(value = "/test")
     public Map test(HttpServletRequest request, HttpServletResponse response) throws IOException {
-//        System.out.println("Servlet 请求、响应参数 GET");
+        System.out.println("Servlet 请求、响应参数 GET");
 
         Map result = new HashMap();
         result.put("name", "愚公");

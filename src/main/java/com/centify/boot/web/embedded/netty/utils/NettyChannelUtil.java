@@ -7,16 +7,25 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.multipart.DefaultHttpDataFactory;
+import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
+import io.netty.handler.codec.http.multipart.InterfaceHttpData;
+import io.netty.handler.codec.http.multipart.MemoryAttribute;
 import io.netty.util.CharsetUtil;
 import io.netty.util.ReferenceCountUtil;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
 import javax.servlet.ServletContext;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * <pre>
@@ -53,9 +62,9 @@ public final class NettyChannelUtil {
      */
     public static void sendResultBytes(ChannelHandlerContext chc, HttpResponseStatus status, Object request, byte[] result) {
         ByteBuf content = null;
-        if (result == null){
+        if (result == null) {
             Unpooled.wrappedBuffer("".getBytes());
-        }else {
+        } else {
             content = Unpooled.wrappedBuffer(result);
         }
         FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status, content);
@@ -70,6 +79,7 @@ public final class NettyChannelUtil {
             ReferenceCountUtil.release(request);
         }
     }
+
     /**
      * <pre>
      * <b>通用Netty响应客户端方法</b>
@@ -134,6 +144,70 @@ public final class NettyChannelUtil {
         UriComponents uriComponents = UriComponentsBuilder.fromUriString(fullHttpRequest.uri()).build();
 
         MockHttpServletRequest servletRequest = new MockHttpServletRequest();
+        setRequestInfo(fullHttpRequest, uriComponents, servletRequest);
+
+        /**header 参数信息*/
+        setRequestHeader(fullHttpRequest, servletRequest);
+
+        setRequestParams(fullHttpRequest, servletRequest, uriComponents);
+
+        return servletRequest;
+    }
+
+    private static void setRequestParams(FullHttpRequest fullHttpRequest, MockHttpServletRequest servletRequest, UriComponents uriComponents) {
+        /*URL 转码 */
+        if (uriComponents.getQuery() != null) {
+            servletRequest.setQueryString(UriUtils.decode(uriComponents.getQuery(), CharsetUtil.UTF_8));
+        }
+        if (HttpMethod.GET.equals(fullHttpRequest.method())) {
+            innerGetParams(servletRequest, uriComponents);
+        } else if (HttpMethod.POST.equals(fullHttpRequest.method())) {
+            innerPostParams(fullHttpRequest, servletRequest);
+        } else if (HttpMethod.DELETE.equals(fullHttpRequest.method())) {
+        }
+    }
+
+    private static void innerPostParams(FullHttpRequest fullHttpRequest, MockHttpServletRequest servletRequest) {
+        Optional.ofNullable(fullHttpRequest.headers().get("Content-Type").trim().toLowerCase())
+                .ifPresent(item -> {
+                    if (item.contains("multipart/form-data") || item.contains("application/x-www-form-urlencoded")) {
+                        HttpPostRequestDecoder decoder = new HttpPostRequestDecoder(new DefaultHttpDataFactory(false), fullHttpRequest);
+                        servletRequest.setParameters(decoder.getBodyHttpDatas().parallelStream()
+                                .filter((data) -> data.getHttpDataType().equals(InterfaceHttpData.HttpDataType.Attribute))
+                                .map((convData) -> (MemoryAttribute) convData)
+                                .collect(Collectors.toMap(
+                                        MemoryAttribute::getName,
+                                        MemoryAttribute::getValue,
+                                        (key1, key2) -> key2)));
+                    } else if (item.contains("application/json")) {
+                        servletRequest.setContent(ByteBufUtil.getBytes(fullHttpRequest.content()));
+                    }
+                });
+    }
+
+    private static void innerGetParams(MockHttpServletRequest servletRequest, UriComponents uriComponents) {
+        Optional.ofNullable(uriComponents.getQueryParams().entrySet())
+                .ifPresent((entrys) -> {
+                    entrys.parallelStream().forEach((entry) -> {
+                        entry.getValue().parallelStream().forEach((item) -> {
+                            servletRequest.addParameter(
+                                    UriUtils.decode(entry.getKey(), CharsetUtil.UTF_8),
+                                    UriUtils.decode(item, CharsetUtil.UTF_8));
+                        });
+                    });
+                });
+    }
+
+    private static void setRequestHeader(FullHttpRequest fullHttpRequest, MockHttpServletRequest servletRequest) {
+        Optional.ofNullable(fullHttpRequest.headers().names())
+                .ifPresent((headers) -> {
+                    headers.parallelStream().forEach((item) -> {
+                        servletRequest.addHeader(item, fullHttpRequest.headers().get(item));
+                    });
+                });
+    }
+
+    private static void setRequestInfo(FullHttpRequest fullHttpRequest, UriComponents uriComponents, MockHttpServletRequest servletRequest) {
         servletRequest.setRequestURI(uriComponents.getPath());
         servletRequest.setPathInfo(uriComponents.getPath());
         servletRequest.setMethod(fullHttpRequest.method().name());
@@ -147,29 +221,5 @@ public final class NettyChannelUtil {
         if (uriComponents.getPort() != -1) {
             servletRequest.setServerPort(uriComponents.getPort());
         }
-
-        Optional.ofNullable(fullHttpRequest.headers().names())
-                .ifPresent((headers) -> {
-                    headers.parallelStream().forEach((item) -> {
-                        servletRequest.addHeader(item, fullHttpRequest.headers().get(item));
-                    });
-                });
-
-        servletRequest.setContent(ByteBufUtil.getBytes(fullHttpRequest.content()));
-
-        if (uriComponents.getQuery() != null) {
-            servletRequest.setQueryString(UriUtils.decode(uriComponents.getQuery(), CharsetUtil.UTF_8));
-        }
-        Optional.ofNullable(uriComponents.getQueryParams().entrySet())
-                .ifPresent((entrys) -> {
-                    entrys.parallelStream().forEach((entry) -> {
-                        entry.getValue().parallelStream().forEach((item) -> {
-                            servletRequest.addParameter(
-                                    UriUtils.decode(entry.getKey(), CharsetUtil.UTF_8),
-                                    UriUtils.decode(item, CharsetUtil.UTF_8));
-                        });
-                    });
-                });
-        return servletRequest;
     }
 }

@@ -15,6 +15,7 @@ import org.springframework.context.ResourceLoaderAware;
 import org.springframework.core.env.Environment;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.mock.web.MockServletConfig;
+import org.springframework.mock.web.MockServletContext;
 import org.springframework.web.servlet.DispatcherServlet;
 
 import javax.servlet.ServletContext;
@@ -37,7 +38,7 @@ import java.net.InetSocketAddress;
  * <pre>
  */
 @Log4j2
-public class NettyServletServletWebServerFactory extends AbstractServletWebServerFactory
+public class NettyServletWebServerFactory extends AbstractServletWebServerFactory
         implements ConfigurableNettyServletWebServerFactory, ResourceLoaderAware {
 
     /**资源加载器*/
@@ -52,7 +53,7 @@ public class NettyServletServletWebServerFactory extends AbstractServletWebServe
     /**应用服务上下文对象*/
     private ServletWebServerApplicationContext servletWebServerApplicationContext;
 
-    public NettyServletServletWebServerFactory(Environment environment, ServerProperties serverProperties, ServletWebServerApplicationContext servletWebServerApplicationContext) {
+    public NettyServletWebServerFactory(Environment environment, ServerProperties serverProperties, ServletWebServerApplicationContext servletWebServerApplicationContext) {
         this.environment = environment;
         this.serverProperties = serverProperties;
         this.servletWebServerApplicationContext = servletWebServerApplicationContext;

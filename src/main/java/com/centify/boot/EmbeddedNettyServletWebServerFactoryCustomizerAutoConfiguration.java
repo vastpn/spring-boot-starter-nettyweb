@@ -1,6 +1,6 @@
 package com.centify.boot.web.embedded.netty;
 
-import com.centify.boot.web.embedded.netty.factory.NettyServletServletWebServerFactory;
+import com.centify.boot.web.embedded.netty.factory.NettyServletWebServerFactory;
 import io.netty.bootstrap.Bootstrap;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.boot.autoconfigure.AutoConfigureOrder;
@@ -43,13 +43,13 @@ public class EmbeddedNettyServletWebServerFactoryCustomizerAutoConfiguration {
 
     @Configuration
     @ConditionalOnClass({Bootstrap.class})
-    @ConditionalOnMissingBean(value = NettyServletServletWebServerFactory.class, search = SearchStrategy.CURRENT)
+    @ConditionalOnMissingBean(value = NettyServletWebServerFactory.class, search = SearchStrategy.CURRENT)
     public static class NettyHttpWebServerFactoryCustomizerConfiguration {
         @Bean
-        public NettyServletServletWebServerFactory embeddedNettyFactory(Environment environment,
-                                                                        ServerProperties serverProperties, ServletWebServerApplicationContext servletWebServerApplicationContext) {
+        public NettyServletWebServerFactory embeddedNettyFactory(Environment environment,
+                                                                 ServerProperties serverProperties, ServletWebServerApplicationContext servletWebServerApplicationContext) {
             log.info("Embedded Netty Servlet WebServer :{} ,{},context = {}", environment, serverProperties, servletWebServerApplicationContext);
-            return new NettyServletServletWebServerFactory(environment, serverProperties, servletWebServerApplicationContext);
+            return new NettyServletWebServerFactory(environment, serverProperties, servletWebServerApplicationContext);
         }
 
 //        /**

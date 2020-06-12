@@ -1,7 +1,5 @@
 package com.centify.boot.web.embedded.netty.core;
 
-import com.centify.boot.web.embedded.netty.context.NettyServletContext;
-import com.centify.boot.web.embedded.netty.utils.SpringContextUtil;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.ChannelFuture;
@@ -15,12 +13,7 @@ import io.netty.util.concurrent.DefaultThreadFactory;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.boot.web.server.WebServer;
 import org.springframework.boot.web.server.WebServerException;
-import org.springframework.mock.web.MockServletConfig;
-import org.springframework.web.context.support.AnnotationConfigWebApplicationContext;
-import org.springframework.web.servlet.DispatcherServlet;
 
-import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
 import java.net.InetSocketAddress;
 
 /**
