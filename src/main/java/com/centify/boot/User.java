@@ -1,4 +1,4 @@
-package com.centify;
+package com.centify.boot;
 
 import lombok.Data;
 import lombok.ToString;

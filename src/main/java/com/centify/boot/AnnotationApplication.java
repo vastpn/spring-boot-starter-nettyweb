@@ -35,7 +35,6 @@ public class AnnotationApplication {
 
     @RequestMapping(value = "/test")
     public Map test(HttpServletRequest request, HttpServletResponse response) throws IOException {
-        System.out.println("Servlet 请求、响应参数 GET");
 
         Map result = new HashMap();
         result.put("name", "愚公");
