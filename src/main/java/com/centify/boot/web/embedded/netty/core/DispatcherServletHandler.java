@@ -1,10 +1,10 @@
 package com.centify.boot.web.embedded.netty.core;
 
-import com.centify.boot.web.embedded.netty.disruptor.SeriesData;
-import com.centify.boot.web.embedded.netty.disruptor.SeriesDataEventQueueHelper;
+import com.centify.boot.web.embedded.netty.context.NettyServletContext;
+import com.centify.boot.web.embedded.netty.servlet.NettyHttpServletRequest;
+import com.centify.boot.web.embedded.netty.servlet.NettyRequestDispatcher;
 import com.centify.boot.web.embedded.netty.utils.NettyChannelUtil;
-import com.centify.boot.web.embedded.netty.utils.SpringContextUtil;
-import io.netty.buffer.*;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -15,10 +15,6 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.DispatcherServlet;
-
-import javax.servlet.ServletException;
-import java.io.IOException;
-import java.util.UUID;
 
 /**
  * <pre>
@@ -36,20 +32,23 @@ import java.util.UUID;
  * <pre>
  */
 @Log4j2
-@Component
 @ChannelHandler.Sharable
-public class DispatcherServletHandler extends SimpleChannelInboundHandler<MockHttpServletRequest> {
+public class DispatcherServletHandler extends SimpleChannelInboundHandler<NettyHttpServletRequest> {
+	private final NettyServletContext servletContext;
 
-	@Autowired
-	DispatcherServlet dispatcherServlet;
+	public DispatcherServletHandler(NettyServletContext servletContext) {
+		this.servletContext = servletContext;
+	}
+
 	@Override
-	protected void channelRead0(ChannelHandlerContext chc, MockHttpServletRequest rrw) throws Exception {
+	protected void channelRead0(ChannelHandlerContext chc, NettyHttpServletRequest request) throws Exception {
 		MockHttpServletResponse servletResponse = new MockHttpServletResponse();
-		dispatcherServlet.service(rrw, servletResponse);
+		NettyRequestDispatcher dispatcherServlet = (NettyRequestDispatcher) servletContext.getRequestDispatcher(request.getRequestURI());
+		dispatcherServlet.dispatch(request, servletResponse);
 		NettyChannelUtil.sendResultByteBuf(
 				chc,
 				HttpResponseStatus.valueOf(servletResponse.getStatus()),
-				rrw,
+				request,
 				Unpooled.wrappedBuffer(servletResponse.getContentAsByteArray())
 		);
 	}

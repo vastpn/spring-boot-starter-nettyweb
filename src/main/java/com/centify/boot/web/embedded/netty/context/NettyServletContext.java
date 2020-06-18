@@ -1,8 +1,11 @@
 package com.centify.boot.web.embedded.netty.context;
 
-import lombok.extern.log4j.Log4j2;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import com.centify.boot.web.embedded.netty.servlet.NettyFilterChain;
+import com.centify.boot.web.embedded.netty.servlet.NettyFilterRegistration;
+import com.centify.boot.web.embedded.netty.servlet.NettyRequestDispatcher;
+import com.centify.boot.web.embedded.netty.servlet.NettyServletRegistration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
@@ -10,7 +13,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.MediaTypeFactory;
 import org.springframework.lang.Nullable;
 import org.springframework.mock.web.MockRequestDispatcher;
-import org.springframework.mock.web.MockServletContext;
 import org.springframework.mock.web.MockSessionCookieConfig;
 import org.springframework.util.*;
 import org.springframework.web.util.WebUtils;
@@ -24,8 +26,8 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.InvalidPathException;
 import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * <pre>
@@ -42,9 +44,10 @@ import java.util.concurrent.Executors;
  *   1.0   2020/5/24 11:49        tanlin            new file.
  * <pre>
  */
-@Log4j2
 public class NettyServletContext implements ServletContext {
-
+    
+    private static final Logger LOGGER = LoggerFactory.getLogger(NettyServletContext.class);
+    
     /** Default Servlet name used by Tomcat, Jetty, JBoss, and GlassFish: {@value}. */
     private static final String COMMON_DEFAULT_SERVLET_NAME = "default";
 
@@ -52,47 +55,11 @@ public class NettyServletContext implements ServletContext {
 
     private static final Set<SessionTrackingMode> DEFAULT_SESSION_TRACKING_MODES = new LinkedHashSet<>(4);
 
-    static {
-        DEFAULT_SESSION_TRACKING_MODES.add(SessionTrackingMode.COOKIE);
-        DEFAULT_SESSION_TRACKING_MODES.add(SessionTrackingMode.URL);
-        DEFAULT_SESSION_TRACKING_MODES.add(SessionTrackingMode.SSL);
-    }
-
-
-    private final Log logger = LogFactory.getLog(getClass());
-
     private final ResourceLoader resourceLoader;
 
     private final String resourceBasePath;
 
     private String contextPath = "";
-
-    private final Map<String, ServletContext> contexts = new HashMap<>();
-
-    private int majorVersion = 3;
-
-    private int minorVersion = 1;
-
-    private int effectiveMajorVersion = 3;
-
-    private int effectiveMinorVersion = 1;
-
-    private final Map<String, RequestDispatcher> namedRequestDispatchers = new HashMap<>();
-
-    private String defaultServletName = COMMON_DEFAULT_SERVLET_NAME;
-
-    private final Map<String, String> initParameters = new LinkedHashMap<>();
-
-    private final Map<String, Object> attributes = new LinkedHashMap<>();
-
-    private String servletContextName = "MockServletContext";
-
-    private final Set<String> declaredRoles = new LinkedHashSet<>();
-
-    @Nullable
-    private Set<SessionTrackingMode> sessionTrackingModes;
-
-    private final SessionCookieConfig sessionCookieConfig = new MockSessionCookieConfig();
 
     private int sessionTimeout;
 
@@ -102,8 +69,46 @@ public class NettyServletContext implements ServletContext {
     @Nullable
     private String responseCharacterEncoding;
 
+    private int majorVersion = 3;
+
+    private int minorVersion = 1;
+
+    private int effectiveMajorVersion = 3;
+
+    private int effectiveMinorVersion = 1;
+
+    private final SessionCookieConfig sessionCookieConfig = new MockSessionCookieConfig();
+
+    private String defaultServletName = COMMON_DEFAULT_SERVLET_NAME;
+
+    private String servletContextName = "MockServletContext";
+
+    private final Map<String, RequestDispatcher> namedRequestDispatchers = new HashMap<>();
+
+    private final Map<String, NettyServletRegistration> servlets = new HashMap<>();
+
+    private final Map<String, String> servletMappings = new HashMap<>();
+
+    private final Map<String, NettyFilterRegistration> filters = new HashMap<>();
+
+    private final Map<String, ServletContext> contexts = new HashMap<>();
+
     private final Map<String, MediaType> mimeTypes = new LinkedHashMap<>();
 
+    private final Set<String> declaredRoles = new LinkedHashSet<>();
+
+    private final Map<String, String> initParameters = new LinkedHashMap<>();
+
+    private final Map<String, Object> attributes = new LinkedHashMap<>();
+
+    @Nullable
+    private Set<SessionTrackingMode> sessionTrackingModes;
+
+    static {
+        DEFAULT_SESSION_TRACKING_MODES.add(SessionTrackingMode.COOKIE);
+        DEFAULT_SESSION_TRACKING_MODES.add(SessionTrackingMode.URL);
+        DEFAULT_SESSION_TRACKING_MODES.add(SessionTrackingMode.SSL);
+    }
 
     /**
      * Create a new {@code MockServletContext}, using no base path and a
@@ -153,7 +158,6 @@ public class NettyServletContext implements ServletContext {
 
         registerNamedDispatcher(this.defaultServletName, new MockRequestDispatcher(this.defaultServletName));
     }
-
     /**
      * Build a full resource location for the given path, prepending the resource
      * base path of this {@code MockServletContext}.
@@ -225,7 +229,6 @@ public class NettyServletContext implements ServletContext {
     }
 
     @Override
-    @Nullable
     public String getMimeType(String filePath) {
         String extension = StringUtils.getFilenameExtension(filePath);
         if (this.mimeTypes.containsKey(extension)) {
@@ -249,87 +252,106 @@ public class NettyServletContext implements ServletContext {
     }
 
     @Override
-    @Nullable
     public Set<String> getResourcePaths(String path) {
-        String actualPath = (path.endsWith("/") ? path : path + "/");
-        String resourceLocation = getResourceLocation(actualPath);
-        Resource resource = null;
-        try {
-            resource = this.resourceLoader.getResource(resourceLocation);
-            File file = resource.getFile();
-            String[] fileList = file.list();
-            if (ObjectUtils.isEmpty(fileList)) {
-                return null;
-            }
-            Set<String> resourcePaths = new LinkedHashSet<>(fileList.length);
-            for (String fileEntry : fileList) {
-                String resultPath = actualPath + fileEntry;
-                if (resource.createRelative(fileEntry).getFile().isDirectory()) {
-                    resultPath += "/";
-                }
-                resourcePaths.add(resultPath);
-            }
-            return resourcePaths;
-        }
-        catch (InvalidPathException | IOException ex ) {
-            if (logger.isWarnEnabled()) {
-                logger.warn("Could not get resource paths for " +
-                        (resource != null ? resource : resourceLocation), ex);
-            }
-            return null;
-        }
+//        String actualPath = (path.endsWith("/") ? path : path + "/");
+//        String resourceLocation = getResourceLocation(actualPath);
+//        Resource resource = null;
+//        try {
+//            resource = this.resourceLoader.getResource(resourceLocation);
+//            File file = resource.getFile();
+//            String[] fileList = file.list();
+//            if (ObjectUtils.isEmpty(fileList)) {
+//                return null;
+//            }
+//            Set<String> resourcePaths = new LinkedHashSet<>(fileList.length);
+//            for (String fileEntry : fileList) {
+//                String resultPath = actualPath + fileEntry;
+//                if (resource.createRelative(fileEntry).getFile().isDirectory()) {
+//                    resultPath += "/";
+//                }
+//                resourcePaths.add(resultPath);
+//            }
+//            return resourcePaths;
+//        }
+//        catch (InvalidPathException | IOException ex ) {
+//            if (LOGGER.isWarnEnabled()) {
+//                LOGGER.warn("Could not get resource paths for " +
+//                        (resource != null ? resource : resourceLocation), ex);
+//            }
+//            return null;
+//        }
+        return null;
     }
 
     @Override
-    @Nullable
     public URL getResource(String path) throws MalformedURLException {
-        String resourceLocation = getResourceLocation(path);
-        Resource resource = null;
-        try {
-            resource = this.resourceLoader.getResource(resourceLocation);
-            if (!resource.exists()) {
-                return null;
-            }
-            return resource.getURL();
-        }
-        catch (MalformedURLException ex) {
-            throw ex;
-        }
-        catch (InvalidPathException | IOException ex) {
-            if (logger.isWarnEnabled()) {
-                logger.warn("Could not get URL for resource " +
-                        (resource != null ? resource : resourceLocation), ex);
-            }
-            return null;
-        }
+//        String resourceLocation = getResourceLocation(path);
+//        Resource resource = null;
+//        try {
+//            resource = this.resourceLoader.getResource(resourceLocation);
+//            if (!resource.exists()) {
+//                return null;
+//            }
+//            return resource.getURL();
+//        }
+//        catch (MalformedURLException ex) {
+//            throw ex;
+//        }
+//        catch (InvalidPathException | IOException ex) {
+//            if (LOGGER.isWarnEnabled()) {
+//                LOGGER.warn("Could not get URL for resource " +
+//                        (resource != null ? resource : resourceLocation), ex);
+//            }
+//            return null;
+//        }
+        return null;
     }
 
     @Override
-    @Nullable
     public InputStream getResourceAsStream(String path) {
-        String resourceLocation = getResourceLocation(path);
-        Resource resource = null;
-        try {
-            resource = this.resourceLoader.getResource(resourceLocation);
-            if (!resource.exists()) {
-                return null;
-            }
-            return resource.getInputStream();
-        }
-        catch (InvalidPathException | IOException ex) {
-            if (logger.isWarnEnabled()) {
-                logger.warn("Could not open InputStream for resource " +
-                        (resource != null ? resource : resourceLocation), ex);
-            }
-            return null;
-        }
+//        String resourceLocation = getResourceLocation(path);
+//        Resource resource = null;
+//        try {
+//            resource = this.resourceLoader.getResource(resourceLocation);
+//            if (!resource.exists()) {
+//                return null;
+//            }
+//            return resource.getInputStream();
+//        }
+//        catch (InvalidPathException | IOException ex) {
+//            if (LOGGER.isWarnEnabled()) {
+//                LOGGER.warn("Could not open InputStream for resource " +
+//                        (resource != null ? resource : resourceLocation), ex);
+//            }
+//            return null;
+//        }
+        return null;
     }
 
     @Override
     public RequestDispatcher getRequestDispatcher(String path) {
-        Assert.isTrue(path.startsWith("/"),
-                () -> "RequestDispatcher path [" + path + "] at ServletContext level must start with '/'");
-        return new MockRequestDispatcher(path);
+        // FIXME proper path matching
+        String servletName = servletMappings.get(path);
+        if (servletName == null) {
+            servletName = servletMappings.get("/");
+        }
+        Servlet servlet = null;
+        try {
+            servlet = null == servletName ? null : servlets.get(servletName).getServlet();
+            if (servlet == null) {
+                return null;
+            }
+            // FIXME proper path matching
+            List<Filter> filters = new ArrayList<>();
+            for (NettyFilterRegistration registration : this.filters.values()) {
+                filters.add(registration.getFilter());
+            }
+            FilterChain filterChain = new NettyFilterChain(servlet, filters);
+            return new NettyRequestDispatcher(this, filterChain);
+        } catch (ServletException e) {
+            // TODO log exception
+            return null;
+        }
     }
 
     @Override
@@ -391,8 +413,8 @@ public class NettyServletContext implements ServletContext {
     @Deprecated
     @Override
     @Nullable
-    public Servlet getServlet(String name) {
-        return null;
+    public Servlet getServlet(String name) throws ServletException {
+        return servlets.get(name).getServlet();
     }
 
     @Override
@@ -409,18 +431,18 @@ public class NettyServletContext implements ServletContext {
 
     @Override
     public void log(String message) {
-        logger.info(message);
+        LOGGER.info(message);
     }
 
     @Override
     @Deprecated
     public void log(Exception ex, String message) {
-        logger.info(message, ex);
+        LOGGER.info(message, ex);
     }
 
     @Override
     public void log(String message, Throwable ex) {
-        logger.info(message, ex);
+        LOGGER.info(message, ex);
     }
 
     @Override
@@ -433,8 +455,8 @@ public class NettyServletContext implements ServletContext {
             return resource.getFile().getAbsolutePath();
         }
         catch (InvalidPathException | IOException ex) {
-            if (logger.isWarnEnabled()) {
-                logger.warn("Could not determine real path of resource " +
+            if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn("Could not determine real path of resource " +
                         (resource != null ? resource : resourceLocation), ex);
             }
             return null;
@@ -443,7 +465,7 @@ public class NettyServletContext implements ServletContext {
 
     @Override
     public String getServerInfo() {
-        return "MockServletContext";
+        return COMMON_DEFAULT_SERVLET_NAME;
     }
 
     @Override
@@ -566,17 +588,23 @@ public class NettyServletContext implements ServletContext {
 
     @Override
     public ServletRegistration.Dynamic addServlet(String servletName, String className) {
-        return null;
+        return addServlet(servletName, className, null);
     }
 
     @Override
     public ServletRegistration.Dynamic addServlet(String servletName, Servlet servlet) {
-        return null;
+        return addServlet(servletName, servlet.getClass().getName(), servlet);
     }
 
     @Override
     public ServletRegistration.Dynamic addServlet(String servletName, Class<? extends Servlet> servletClass) {
-        return null;
+        return addServlet(servletName, servletClass.getName());
+    }
+
+    private ServletRegistration.Dynamic addServlet(String servletName, String className, Servlet servlet) {
+        NettyServletRegistration servletRegistration = new NettyServletRegistration(this, servletName, className, servlet);
+        servlets.put(servletName, servletRegistration);
+        return servletRegistration;
     }
 
     @Override
@@ -605,17 +633,23 @@ public class NettyServletContext implements ServletContext {
 
     @Override
     public FilterRegistration.Dynamic addFilter(String filterName, String className) {
-        throw new UnsupportedOperationException();
+        return addFilter(filterName, className, null);
     }
 
     @Override
     public FilterRegistration.Dynamic addFilter(String filterName, Filter filter) {
-        return null;
+        return addFilter(filterName, filter.getClass().getName(), filter);
     }
 
     @Override
     public FilterRegistration.Dynamic addFilter(String filterName, Class<? extends Filter> filterClass) {
-        throw new UnsupportedOperationException();
+        return addFilter(filterName, filterClass.getName());
+    }
+
+    private javax.servlet.FilterRegistration.Dynamic addFilter(String filterName, String className, Filter filter) {
+        NettyFilterRegistration filterRegistration = new NettyFilterRegistration(this, filterName, className, filter);
+        filters.put(filterName, filterRegistration);
+        return filterRegistration;
     }
 
     @Override
@@ -630,7 +664,7 @@ public class NettyServletContext implements ServletContext {
     @Override
     @Nullable
     public FilterRegistration getFilterRegistration(String filterName) {
-        return null;
+        return filters.get(filterName);
     }
 
     /**
@@ -639,7 +673,7 @@ public class NettyServletContext implements ServletContext {
      */
     @Override
     public Map<String, ? extends FilterRegistration> getFilterRegistrations() {
-        return Collections.emptyMap();
+        return filters;
     }
 
     @Override
@@ -665,5 +699,12 @@ public class NettyServletContext implements ServletContext {
     @Override
     public String getVirtualServerName() {
         throw new UnsupportedOperationException();
+    }
+
+    public void addServletMapping(String urlPattern, String name) {
+        servletMappings.put(urlPattern, checkNotNull(name));
+    }
+    public void addFilterMapping(EnumSet<DispatcherType> dispatcherTypes, boolean isMatchAfter, String urlPattern) {
+        // TODO 实现过滤器 后缀匹配
     }
 }

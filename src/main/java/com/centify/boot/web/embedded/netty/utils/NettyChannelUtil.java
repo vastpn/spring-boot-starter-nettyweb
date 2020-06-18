@@ -1,6 +1,8 @@
 package com.centify.boot.web.embedded.netty.utils;
 
 import com.alibaba.fastjson.JSONObject;
+import com.centify.boot.web.embedded.netty.context.NettyServletContext;
+import com.centify.boot.web.embedded.netty.servlet.NettyHttpServletRequest;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
@@ -21,6 +23,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.util.UriUtils;
 
 import javax.servlet.ServletContext;
+import javax.servlet.ServletInputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -135,15 +138,20 @@ public final class NettyChannelUtil {
      *
      * <b>Author: tanlin [2020/5/24 16:13]</b>
      *
+     *
+     * @param ctx
+     * @param servletContext
      * @param fullHttpRequest Http请求对象
      * @return org.springframework.mock.web.MockHttpServletRequest
      * <pre>
      */
-    public static MockHttpServletRequest createServletRequest(FullHttpRequest fullHttpRequest) {
+    public static NettyHttpServletRequest createServletRequest(ChannelHandlerContext ctx,
+                                                               NettyServletContext servletContext,
+                                                               FullHttpRequest fullHttpRequest) {
 
         UriComponents uriComponents = UriComponentsBuilder.fromUriString(fullHttpRequest.uri()).build();
 
-        MockHttpServletRequest servletRequest = new MockHttpServletRequest();
+        NettyHttpServletRequest servletRequest = new NettyHttpServletRequest(ctx,servletContext,fullHttpRequest);
         setRequestInfo(fullHttpRequest, uriComponents, servletRequest);
 
         /**header 参数信息*/
@@ -154,7 +162,7 @@ public final class NettyChannelUtil {
         return servletRequest;
     }
 
-    private static void setRequestParams(FullHttpRequest fullHttpRequest, MockHttpServletRequest servletRequest, UriComponents uriComponents) {
+    private static void setRequestParams(FullHttpRequest fullHttpRequest, NettyHttpServletRequest servletRequest, UriComponents uriComponents) {
         /*URL 转码 */
         if (uriComponents.getQuery() != null) {
             servletRequest.setQueryString(UriUtils.decode(uriComponents.getQuery(), CharsetUtil.UTF_8));
@@ -167,7 +175,7 @@ public final class NettyChannelUtil {
         }
     }
 
-    private static void innerPostParams(FullHttpRequest fullHttpRequest, MockHttpServletRequest servletRequest) {
+    private static void innerPostParams(FullHttpRequest fullHttpRequest, NettyHttpServletRequest servletRequest) {
         Optional.ofNullable(fullHttpRequest.headers().get("Content-Type").trim().toLowerCase())
                 .ifPresent(item -> {
                     if (item.contains("multipart/form-data") || item.contains("application/x-www-form-urlencoded")) {
@@ -185,7 +193,7 @@ public final class NettyChannelUtil {
                 });
     }
 
-    private static void innerGetParams(MockHttpServletRequest servletRequest, UriComponents uriComponents) {
+    private static void innerGetParams(NettyHttpServletRequest servletRequest, UriComponents uriComponents) {
         Optional.ofNullable(uriComponents.getQueryParams().entrySet())
                 .ifPresent((entrys) -> {
                     entrys.parallelStream().forEach((entry) -> {
@@ -198,7 +206,7 @@ public final class NettyChannelUtil {
                 });
     }
 
-    private static void setRequestHeader(FullHttpRequest fullHttpRequest, MockHttpServletRequest servletRequest) {
+    private static void setRequestHeader(FullHttpRequest fullHttpRequest, NettyHttpServletRequest servletRequest) {
         Optional.ofNullable(fullHttpRequest.headers().names())
                 .ifPresent((headers) -> {
                     headers.parallelStream().forEach((item) -> {
@@ -207,10 +215,9 @@ public final class NettyChannelUtil {
                 });
     }
 
-    private static void setRequestInfo(FullHttpRequest fullHttpRequest, UriComponents uriComponents, MockHttpServletRequest servletRequest) {
+    private static void setRequestInfo(FullHttpRequest fullHttpRequest, UriComponents uriComponents, NettyHttpServletRequest servletRequest) {
         servletRequest.setRequestURI(uriComponents.getPath());
         servletRequest.setPathInfo(uriComponents.getPath());
-        servletRequest.setMethod(fullHttpRequest.method().name());
 
         if (uriComponents.getScheme() != null) {
             servletRequest.setScheme(uriComponents.getScheme());

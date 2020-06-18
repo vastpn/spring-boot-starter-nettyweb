@@ -1,6 +1,7 @@
 package com.centify.boot.web.embedded.netty.core;
 
 import com.centify.boot.web.embedded.netty.constant.NettyConstant;
+import com.centify.boot.web.embedded.netty.context.NettyServletContext;
 import com.centify.boot.web.embedded.netty.utils.NettyChannelUtil;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
@@ -10,7 +11,6 @@ import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.stereotype.Component;
 
 import java.net.InetSocketAddress;
 
@@ -29,9 +29,16 @@ import java.net.InetSocketAddress;
  * <pre>
  */
 @Log4j2
-@Component
 @ChannelHandler.Sharable
 public class FaviconHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+
+    private final NettyServletContext servletContext;
+
+    public FaviconHandler(NettyServletContext servletContext) {
+        this.servletContext = servletContext;
+    }
+
+
     @Override
     protected void channelRead0(ChannelHandlerContext chc, FullHttpRequest fullHttpRequest) throws Exception {
 //        System.out.println("1");

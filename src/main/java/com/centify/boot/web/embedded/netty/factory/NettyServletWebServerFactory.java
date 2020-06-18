@@ -5,7 +5,8 @@ import com.centify.boot.web.embedded.netty.core.NettyContainer;
 import com.centify.boot.web.embedded.netty.utils.ReflectionUtil;
 import io.netty.bootstrap.Bootstrap;
 import lombok.SneakyThrows;
-import lombok.extern.log4j.Log4j2;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.web.ServerProperties;
 import org.springframework.boot.web.server.WebServer;
 import org.springframework.boot.web.servlet.ServletContextInitializer;
@@ -15,7 +16,6 @@ import org.springframework.context.ResourceLoaderAware;
 import org.springframework.core.env.Environment;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.mock.web.MockServletConfig;
-import org.springframework.mock.web.MockServletContext;
 import org.springframework.web.servlet.DispatcherServlet;
 
 import javax.servlet.ServletContext;
@@ -24,7 +24,7 @@ import java.net.InetSocketAddress;
 
 /**
  * <pre>
- * <b>获取Netty Web 容器</b>
+ * <b>NettyServlet WebServer 容器</b>
  * <b>Describe:
  * 1、Netty Servlet WebServer 工厂服务类
  * 2、SpringBoot 自动注入并获取web应用的容器</b>
@@ -37,68 +37,66 @@ import java.net.InetSocketAddress;
  *   1.0   2020/6/8 9:53        tanlin            new file.
  * <pre>
  */
-@Log4j2
-public class NettyServletWebServerFactory extends AbstractServletWebServerFactory
-        implements ConfigurableNettyServletWebServerFactory, ResourceLoaderAware {
-
-    /**资源加载器*/
+public class NettyServletWebServerFactory extends AbstractServletWebServerFactory implements ResourceLoaderAware {
+    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractServletWebServerFactory.class);
+    /**
+     * 资源加载器
+     */
     private ResourceLoader resourceLoader;
 
-    /**环境配置对象*/
+    /**
+     * 环境配置对象
+     */
     private final Environment environment;
 
-    /**WebServer 配置属性*/
+    /**
+     * WebServer 配置属性
+     */
     private final ServerProperties serverProperties;
 
-    /**应用服务上下文对象*/
-    private ServletWebServerApplicationContext servletWebServerApplicationContext;
 
-    public NettyServletWebServerFactory(Environment environment, ServerProperties serverProperties, ServletWebServerApplicationContext servletWebServerApplicationContext) {
+    public NettyServletWebServerFactory(Environment environment,
+                                        ServerProperties serverProperties ) {
         this.environment = environment;
         this.serverProperties = serverProperties;
-        this.servletWebServerApplicationContext = servletWebServerApplicationContext;
     }
-
 
     @SneakyThrows
     @Override
     public WebServer getWebServer(ServletContextInitializer... initializers) {
-        /**Netty启动环境相关信息*/
-        Package nettyPackage = Bootstrap.class.getPackage();
-        String title = nettyPackage.getImplementationTitle();
-        String version = nettyPackage.getImplementationVersion();
-        log.info("Running with " + title + " " + version);
-        /**是否支持默认Servlet*/
-        if (isRegisterDefaultServlet()) {
-            log.warn("This container does not support a default servlet");
-        }
-        log.info("Running end " + title + " " + version);
-
+        /**容器信息日志*/
+        logContainer();
         /**Servlet 上下文 设置*/
-        ServletContext context = setServletContext();
+        NettyServletContext servletContext = new NettyServletContext(getContextPath(),resourceLoader);
+//        servletWebServerApplicationContext.setServletContext(servletContext);
 
         /**容器初始化工厂 上下文设置*/
-        onStartup(context, initializers);
+        onStartup(servletContext, initializers);
 
         /**Servlet 分发器初始化*/
-        dispatcherServletInit();
+//        dispatcherServletInit();
 
         /**从SpringBoot配置中获取端口，如果没有则随机生成*/
         int port = getPort() > 0 ? getPort() : 8080;
         InetSocketAddress address = new InetSocketAddress(port);
-        log.info("Server initialized with port: {}" ,port);
+        LOGGER.info("Server initialized with port: {}", port);
         /**初始化容器并返回*/
-        return new NettyContainer(address);
+        return new NettyContainer(address,servletContext);
     }
 
-    private void dispatcherServletInit() throws ServletException {
-        /**从spring上下文获取DispatcherServlet，对其进行处理*/
-        DispatcherServlet dispatcherServlet = servletWebServerApplicationContext.getBean(DispatcherServlet.class);
-        MockServletConfig myServletConfig = new MockServletConfig();
-        ReflectionUtil.setFieldValue(dispatcherServlet, "config", myServletConfig);
-        /**初始化servlet*/
-        dispatcherServlet.init();
+    private void logContainer() {
+        /**Netty启动环境相关信息*/
+        Package nettyPackage = Bootstrap.class.getPackage();
+        String title = nettyPackage.getImplementationTitle();
+        String version = nettyPackage.getImplementationVersion();
+        LOGGER.info("Running with " + title + " " + version);
+        /**是否支持默认Servlet*/
+        if (isRegisterDefaultServlet()) {
+            LOGGER.warn("This container does not support a default servlet");
+        }
+        LOGGER.info("Running end " + title + " " + version);
     }
+
 
     private void onStartup(ServletContext context, ServletContextInitializer[] initializers) {
         for (ServletContextInitializer initializer : initializers) {
@@ -110,11 +108,6 @@ public class NettyServletWebServerFactory extends AbstractServletWebServerFactor
         }
     }
 
-    private ServletContext setServletContext() {
-        ServletContext context = new NettyServletContext();
-        servletWebServerApplicationContext.setServletContext(context);
-        return context;
-    }
 
     @Override
     public void setResourceLoader(ResourceLoader resourceLoader) {

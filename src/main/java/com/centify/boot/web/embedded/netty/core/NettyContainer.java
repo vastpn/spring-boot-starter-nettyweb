@@ -1,5 +1,6 @@
 package com.centify.boot.web.embedded.netty.core;
 
+import com.centify.boot.web.embedded.netty.context.NettyServletContext;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.ChannelFuture;
@@ -31,18 +32,22 @@ import java.net.InetSocketAddress;
  */
 @Log4j2
 public class NettyContainer implements WebServer {
+    /**ServletContext 全局上下文*/
+    private final NettyServletContext servletContext;
 
     /**监听端口地址*/
     private final InetSocketAddress address;
 
-    /**Netty所需的线程池，分别用于接收/监听请求以及处理请求读写*/
+    /**Netty事件接收线程池组*/
     private EventLoopGroup acceptGroup;
-    private EventLoopGroup workerGroup;
-    /**Netty 业务处理线程组，暂未使用*/
-    private DefaultEventExecutorGroup servletExecutor;
 
-    public NettyContainer(InetSocketAddress address) {
+    /**Netty事件处理线程池组*/
+    private EventLoopGroup workerGroup;
+
+
+    public NettyContainer(InetSocketAddress address, NettyServletContext servletContext) {
         this.address = address;
+        this.servletContext = servletContext;
     }
 
     @Override
@@ -64,22 +69,26 @@ public class NettyContainer implements WebServer {
                     .option(ChannelOption.SO_REUSEADDR, Boolean.TRUE)
                     /*设置可处理队列数量*/
                     .option(ChannelOption.SO_BACKLOG, 4096)
+                    .option(NioChannelOption.SO_RCVBUF, 4*1024)
+                    /*响应时间有高要求的场景 禁用nagle 算法*/
+                    .option(ChannelOption.TCP_NODELAY, Boolean.TRUE)
+                    .option(ChannelOption.SO_KEEPALIVE, Boolean.FALSE)
                     /*ByteBuf重用缓冲区*/
                     .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
-                    .childOption(ChannelOption.SO_KEEPALIVE, Boolean.TRUE)
-                    /*是否使用fullrequest fullresponse发送数据*/
-                    .childOption(ChannelOption.TCP_NODELAY, true)
+
+                    /*响应时间有高要求的场景 禁用nagle 算法*/
+                    .childOption(NioChannelOption.TCP_NODELAY, Boolean.TRUE)
                     /*是否允许端口占用*/
-                    .childOption(NioChannelOption.SO_REUSEADDR, true)
+                    .childOption(NioChannelOption.SO_REUSEADDR, Boolean.TRUE)
                     /*是否设置长连接*/
-                    .childOption(NioChannelOption.SO_KEEPALIVE, false)
+                    .childOption(NioChannelOption.SO_KEEPALIVE, Boolean.FALSE)
                     /*设置接收数据大小 设置为4K*/
                     .childOption(NioChannelOption.SO_RCVBUF, 4*1024)
                     /*设置发送数据大小 设置为16K*/
                     .childOption(NioChannelOption.SO_SNDBUF, 16*1024)
                     /*设置ByteBuf重用缓冲区*/
                     .childOption(NioChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
-                    .childHandler(new DispatcherServletChannelInitializer());
+                    .childHandler(new DispatcherServletChannelInitializer(servletContext));
 
             /**绑定端口，并打印端口信息*/
             ChannelFuture channelFuture = bootstrap.bind(address).syncUninterruptibly().addListener(future -> {
@@ -127,9 +136,6 @@ public class NettyContainer implements WebServer {
             }
             if (null != workerGroup) {
                 workerGroup.shutdownGracefully().await();
-            }
-            if (null != servletExecutor) {
-                servletExecutor.shutdownGracefully().await();
             }
         } catch (InterruptedException e) {
             throw new WebServerException("Container stop interrupted", e);

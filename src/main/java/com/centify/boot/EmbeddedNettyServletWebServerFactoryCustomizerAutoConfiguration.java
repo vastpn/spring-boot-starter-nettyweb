@@ -1,8 +1,9 @@
-package com.centify.boot.web.embedded.netty;
+package com.centify.boot;
 
 import com.centify.boot.web.embedded.netty.factory.NettyServletWebServerFactory;
 import io.netty.bootstrap.Bootstrap;
-import lombok.extern.log4j.Log4j2;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfigureOrder;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -15,6 +16,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.env.Environment;
+
 
 /**
  * <pre>
@@ -34,22 +36,22 @@ import org.springframework.core.env.Environment;
  *   1.0   2020/6/8 9:55        tanlin            new file.
  * <pre>
  */
-@Log4j2
-@AutoConfigureOrder(Ordered.HIGHEST_PRECEDENCE)
 @Configuration
 @ConditionalOnWebApplication
+@AutoConfigureOrder(Ordered.HIGHEST_PRECEDENCE)
 @EnableConfigurationProperties(ServerProperties.class)
 public class EmbeddedNettyServletWebServerFactoryCustomizerAutoConfiguration {
 
     @Configuration
     @ConditionalOnClass({Bootstrap.class})
     @ConditionalOnMissingBean(value = NettyServletWebServerFactory.class, search = SearchStrategy.CURRENT)
-    public static class NettyHttpWebServerFactoryCustomizerConfiguration {
+    public static class NettyServletWebServerFactoryCustomizerConfiguration {
+        private static final Logger LOGGER = LoggerFactory.getLogger(NettyServletWebServerFactoryCustomizerConfiguration.class);
         @Bean
         public NettyServletWebServerFactory embeddedNettyFactory(Environment environment,
-                                                                 ServerProperties serverProperties, ServletWebServerApplicationContext servletWebServerApplicationContext) {
-            log.info("Embedded Netty Servlet WebServer :{} ,{},context = {}", environment, serverProperties, servletWebServerApplicationContext);
-            return new NettyServletWebServerFactory(environment, serverProperties, servletWebServerApplicationContext);
+                                                                 ServerProperties serverProperties) {
+            LOGGER.info("[Container] Embedded Netty Servlet WebServer :{} ,{},context = {}", environment, serverProperties);
+            return new NettyServletWebServerFactory(environment, serverProperties);
         }
 
 //        /**
