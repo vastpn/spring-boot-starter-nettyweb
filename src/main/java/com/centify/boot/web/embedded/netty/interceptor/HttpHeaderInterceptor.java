@@ -28,6 +28,7 @@ public class HttpHeaderInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         //TODO Spring Demo 拦截器实现
+//        System.out.println("Interceptor");
         return true;
     }
 

@@ -145,14 +145,27 @@ public final class NettyChannelUtil {
      * @return org.springframework.mock.web.MockHttpServletRequest
      * <pre>
      */
-    public static NettyHttpServletRequest createServletRequest(ChannelHandlerContext ctx,
+    public static MockHttpServletRequest createServletRequest(ChannelHandlerContext ctx,
                                                                NettyServletContext servletContext,
                                                                FullHttpRequest fullHttpRequest) {
 
         UriComponents uriComponents = UriComponentsBuilder.fromUriString(fullHttpRequest.uri()).build();
 
-        NettyHttpServletRequest servletRequest = new NettyHttpServletRequest(ctx,servletContext,fullHttpRequest);
-        setRequestInfo(fullHttpRequest, uriComponents, servletRequest);
+        MockHttpServletRequest servletRequest = new MockHttpServletRequest(servletContext);
+        servletRequest.setRequestURI(uriComponents.getPath());
+        servletRequest.setPathInfo(uriComponents.getPath());
+        servletRequest.setMethod(fullHttpRequest.getMethod().name());
+
+        if (uriComponents.getScheme() != null) {
+            servletRequest.setScheme(uriComponents.getScheme());
+        }
+        if (uriComponents.getHost() != null) {
+            servletRequest.setServerName(uriComponents.getHost());
+        }
+        if (uriComponents.getPort() != -1) {
+            servletRequest.setServerPort(uriComponents.getPort());
+        }
+
 
         /**header 参数信息*/
         setRequestHeader(fullHttpRequest, servletRequest);
@@ -162,7 +175,7 @@ public final class NettyChannelUtil {
         return servletRequest;
     }
 
-    private static void setRequestParams(FullHttpRequest fullHttpRequest, NettyHttpServletRequest servletRequest, UriComponents uriComponents) {
+    private static void setRequestParams(FullHttpRequest fullHttpRequest, MockHttpServletRequest servletRequest, UriComponents uriComponents) {
         /*URL 转码 */
         if (uriComponents.getQuery() != null) {
             servletRequest.setQueryString(UriUtils.decode(uriComponents.getQuery(), CharsetUtil.UTF_8));
@@ -175,7 +188,7 @@ public final class NettyChannelUtil {
         }
     }
 
-    private static void innerPostParams(FullHttpRequest fullHttpRequest, NettyHttpServletRequest servletRequest) {
+    private static void innerPostParams(FullHttpRequest fullHttpRequest, MockHttpServletRequest servletRequest) {
         Optional.ofNullable(fullHttpRequest.headers().get("Content-Type").trim().toLowerCase())
                 .ifPresent(item -> {
                     if (item.contains("multipart/form-data") || item.contains("application/x-www-form-urlencoded")) {
@@ -193,7 +206,7 @@ public final class NettyChannelUtil {
                 });
     }
 
-    private static void innerGetParams(NettyHttpServletRequest servletRequest, UriComponents uriComponents) {
+    private static void innerGetParams(MockHttpServletRequest servletRequest, UriComponents uriComponents) {
         Optional.ofNullable(uriComponents.getQueryParams().entrySet())
                 .ifPresent((entrys) -> {
                     entrys.parallelStream().forEach((entry) -> {
@@ -206,7 +219,7 @@ public final class NettyChannelUtil {
                 });
     }
 
-    private static void setRequestHeader(FullHttpRequest fullHttpRequest, NettyHttpServletRequest servletRequest) {
+    private static void setRequestHeader(FullHttpRequest fullHttpRequest, MockHttpServletRequest servletRequest) {
         Optional.ofNullable(fullHttpRequest.headers().names())
                 .ifPresent((headers) -> {
                     headers.parallelStream().forEach((item) -> {

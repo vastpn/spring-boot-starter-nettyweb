@@ -51,7 +51,7 @@ public class DispatcherServletChannelInitializer extends ChannelInitializer<Sock
                 /**过滤 favicon.ico 请求*/
                 .addLast("Favicon",new FaviconHandler(servletContext))
                 /**FullHttpRequest转换为MockHttpServletRequest*/
-                .addLast("MockTransform", new FullHttpTransformServletHandler(servletContext))
+//                .addLast("MockTransform", new FullHttpTransformServletHandler(servletContext))
                 /**转交给SpringMVC dispatcherServlet 处理业务逻辑，可正常使用Spring RestController 等注解*/
                 .addLast( "DispatcherServlet", new DispatcherServletHandler(servletContext));
 

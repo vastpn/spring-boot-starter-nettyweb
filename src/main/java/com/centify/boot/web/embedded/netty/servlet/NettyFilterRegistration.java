@@ -31,7 +31,7 @@ public class NettyFilterRegistration extends AbstractNettyRegistration implement
         this.filter = filter;
     }
 
-    public Filter getFilter() throws ServletException {
+    public Filter getFilter()  {
         if (!initialised) {
             synchronized (this) {
                 if (!initialised) {
@@ -39,10 +39,14 @@ public class NettyFilterRegistration extends AbstractNettyRegistration implement
                         try {
                             filter = (Filter) Class.forName(getClassName()).newInstance();
                         } catch (Exception e) {
-                            throw new ServletException(e);
+                            return null;
                         }
                     }
-                    filter.init(this);
+                    try {
+                        filter.init(this);
+                    } catch (ServletException e) {
+                        return null;
+                    }
                     initialised = true;
                 }
             }

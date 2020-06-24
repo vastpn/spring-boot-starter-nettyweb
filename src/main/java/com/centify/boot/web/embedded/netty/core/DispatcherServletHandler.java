@@ -7,6 +7,7 @@ import com.centify.boot.web.embedded.netty.utils.NettyChannelUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import lombok.extern.log4j.Log4j2;
@@ -33,28 +34,28 @@ import org.springframework.web.servlet.DispatcherServlet;
  */
 @Log4j2
 @ChannelHandler.Sharable
-public class DispatcherServletHandler extends SimpleChannelInboundHandler<NettyHttpServletRequest> {
-	private final NettyServletContext servletContext;
+public class DispatcherServletHandler extends ChannelInboundHandlerAdapter {
+    private final NettyServletContext servletContext;
 
-	public DispatcherServletHandler(NettyServletContext servletContext) {
-		this.servletContext = servletContext;
-	}
+    public DispatcherServletHandler(NettyServletContext servletContext) {
+        this.servletContext = servletContext;
+    }
 
-	@Override
-	protected void channelRead0(ChannelHandlerContext chc, NettyHttpServletRequest request) throws Exception {
-		MockHttpServletResponse servletResponse = new MockHttpServletResponse();
-		NettyRequestDispatcher dispatcherServlet = (NettyRequestDispatcher) servletContext.getRequestDispatcher(request.getRequestURI());
-		dispatcherServlet.dispatch(request, servletResponse);
-		NettyChannelUtil.sendResultByteBuf(
-				chc,
-				HttpResponseStatus.valueOf(servletResponse.getStatus()),
-				request,
-				Unpooled.wrappedBuffer(servletResponse.getContentAsByteArray())
-		);
-	}
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        MockHttpServletResponse servletResponse = new MockHttpServletResponse();
+        NettyRequestDispatcher dispatcherServlet = (NettyRequestDispatcher) servletContext.getRequestDispatcher(((MockHttpServletRequest) msg).getRequestURI());
+        dispatcherServlet.dispatch((MockHttpServletRequest) msg, servletResponse);
+        NettyChannelUtil.sendResultByteBuf(
+                ctx,
+                HttpResponseStatus.valueOf(servletResponse.getStatus()),
+                msg,
+                Unpooled.wrappedBuffer(servletResponse.getContentAsByteArray())
+        );
+    }
 
-	@Override
-	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-		ctx.close();
-	}
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        ctx.close();
+    }
 }

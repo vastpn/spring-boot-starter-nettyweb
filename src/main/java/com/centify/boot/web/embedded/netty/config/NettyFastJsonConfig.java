@@ -44,8 +44,8 @@ public class NettyFastJsonConfig implements WebMvcConfigurer {
         /**添加fastjson的配置信息 比如 ：是否要格式化返回的json数据*/
         FastJsonConfig fastJsonConfig = new FastJsonConfig();
         SerializerFeature[] features = new SerializerFeature[]{
-                /**格式化输出*/
-                SerializerFeature.PrettyFormat,
+//                /**格式化输出*/
+//                SerializerFeature.PrettyFormat,
                 /**序列化输出字段，使用引号,默认为true*/
                 SerializerFeature.QuoteFieldNames,
                 /**空值是否输出,默认为false*/

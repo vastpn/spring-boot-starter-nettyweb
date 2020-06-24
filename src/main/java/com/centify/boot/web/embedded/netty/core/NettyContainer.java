@@ -6,6 +6,8 @@ import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollEventLoopGroup;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioChannelOption;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -44,6 +46,8 @@ public class NettyContainer implements WebServer {
     /**Netty事件处理线程池组*/
     private EventLoopGroup workerGroup;
 
+    private Boolean epollFlag;
+
 
     public NettyContainer(InetSocketAddress address, NettyServletContext servletContext) {
         this.address = address;
@@ -54,12 +58,12 @@ public class NettyContainer implements WebServer {
     public void start() throws WebServerException {
         /**服务启动对象*/
         ServerBootstrap bootstrap = new ServerBootstrap();
+
+        epollFlag = Epoll.isAvailable();
         /**接收请求工作组*/
-        acceptGroup = new NioEventLoopGroup(1,
-                new DefaultThreadFactory("acceptGroup"));
+        initAcceptGroup();
         /**处理请求工作组*/
-        workerGroup = new NioEventLoopGroup(Runtime.getRuntime().availableProcessors() * 2,
-                new DefaultThreadFactory("workerGroup"));
+        initWorkerGroup();
         try {
             /**绑定接收请求、处理请求工作组，并设置HTTP/TCP通讯参数*/
             bootstrap.group(acceptGroup, workerGroup)
@@ -68,20 +72,16 @@ public class NettyContainer implements WebServer {
                     /*是否允许端口占用*/
                     .option(ChannelOption.SO_REUSEADDR, Boolean.TRUE)
                     /*设置可处理队列数量*/
-                    .option(ChannelOption.SO_BACKLOG, 4096)
+                    .option(ChannelOption.SO_BACKLOG, 128)
                     .option(NioChannelOption.SO_RCVBUF, 4*1024)
-                    /*响应时间有高要求的场景 禁用nagle 算法*/
-                    .option(ChannelOption.TCP_NODELAY, Boolean.TRUE)
-                    .option(ChannelOption.SO_KEEPALIVE, Boolean.FALSE)
                     /*ByteBuf重用缓冲区*/
                     .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
-
                     /*响应时间有高要求的场景 禁用nagle 算法*/
                     .childOption(NioChannelOption.TCP_NODELAY, Boolean.TRUE)
                     /*是否允许端口占用*/
                     .childOption(NioChannelOption.SO_REUSEADDR, Boolean.TRUE)
                     /*是否设置长连接*/
-                    .childOption(NioChannelOption.SO_KEEPALIVE, Boolean.FALSE)
+                    .childOption(NioChannelOption.SO_KEEPALIVE, Boolean.TRUE)
                     /*设置接收数据大小 设置为4K*/
                     .childOption(NioChannelOption.SO_RCVBUF, 4*1024)
                     /*设置发送数据大小 设置为16K*/
@@ -120,6 +120,29 @@ public class NettyContainer implements WebServer {
         }
 
         log.info(" started on port: " + getPort());
+    }
+
+    private void initWorkerGroup() {
+        log.info("System workerGroup {} ",epollFlag);
+//        if (epollFlag){
+//            workerGroup = new EpollEventLoopGroup(Runtime.getRuntime().availableProcessors() * 2,
+//                    new DefaultThreadFactory("workerGroup"));
+//
+//        }else{
+            workerGroup = new NioEventLoopGroup(Runtime.getRuntime().availableProcessors() * 2,
+                    new DefaultThreadFactory("workerGroup"));
+//        }
+    }
+
+    private void initAcceptGroup() {
+        log.info("System acceptGroup {} ",epollFlag);
+//        if (epollFlag){
+//            acceptGroup = new EpollEventLoopGroup(1,
+//                    new DefaultThreadFactory("acceptGroup"));
+//        }else{
+            acceptGroup = new NioEventLoopGroup(1,
+                    new DefaultThreadFactory("acceptGroup"));
+//        }
     }
 
     /**

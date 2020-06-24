@@ -3,16 +3,17 @@ package com.centify.boot.web.embedded.netty.core;
 import com.centify.boot.web.embedded.netty.constant.NettyConstant;
 import com.centify.boot.web.embedded.netty.context.NettyServletContext;
 import com.centify.boot.web.embedded.netty.utils.NettyChannelUtil;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.channel.*;
 import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.HttpContent;
+import io.netty.handler.codec.http.HttpMessage;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.util.ReferenceCountUtil;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 
 import java.net.InetSocketAddress;
+import java.util.Optional;
 
 /**
  * <pre>
@@ -30,29 +31,12 @@ import java.net.InetSocketAddress;
  */
 @Log4j2
 @ChannelHandler.Sharable
-public class FaviconHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+public class FaviconHandler extends ChannelInboundHandlerAdapter {
 
     private final NettyServletContext servletContext;
 
     public FaviconHandler(NettyServletContext servletContext) {
         this.servletContext = servletContext;
-    }
-
-
-    @Override
-    protected void channelRead0(ChannelHandlerContext chc, FullHttpRequest fullHttpRequest) throws Exception {
-//        System.out.println("1");
-        /**验证解码*/
-        if (!fullHttpRequest.decoderResult().isSuccess()) {
-            NettyChannelUtil.sendResultBytes(chc, HttpResponseStatus.BAD_REQUEST, fullHttpRequest, null);
-            return;
-        }
-        //TODO 后期支持 YML配置 动态启用、禁用 /favicon.ico 请求
-        if(NettyConstant.HTTP_REQUEST_FAVICON.equalsIgnoreCase(fullHttpRequest.uri())){
-            chc.close();
-            return ;
-        }
-        chc.fireChannelRead(fullHttpRequest);
     }
 
     /**
@@ -85,6 +69,27 @@ public class FaviconHandler extends SimpleChannelInboundHandler<FullHttpRequest>
             ip = "127.0.0.1";
         }
         return ip;
+    }
+
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+
+        try {
+            Optional.of((FullHttpRequest) msg).ifPresent((request -> {
+                if (!request.decoderResult().isSuccess() ||
+                        NettyConstant.HTTP_REQUEST_FAVICON.equalsIgnoreCase(request.uri())) {
+                    ctx.close();
+                    ReferenceCountUtil.release(msg);
+                    return;
+                }
+                ctx.fireChannelRead(NettyChannelUtil.createServletRequest(ctx, servletContext, request));
+                ctx.channel().pipeline().remove(this);
+            }));
+
+        } catch (Exception ex) {
+            ctx.close();
+            ReferenceCountUtil.release(msg);
+        }
     }
 
     @Override
