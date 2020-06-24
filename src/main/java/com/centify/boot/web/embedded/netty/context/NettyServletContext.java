@@ -343,10 +343,6 @@ public class NettyServletContext implements ServletContext {
                 return null;
             }
             // FIXME proper path matching
-//            List<Filter> filters = new ArrayList<>();
-//            for (NettyFilterRegistration registration : this.filters.values()) {
-//                filters.add(registration.getFilter());
-//            }
             FilterChain filterChain = new NettyFilterChain(servlet, this.filters.entrySet().stream()
                     .map(entry->entry.getValue().getFilter()).collect(Collectors.toList()));
             return new NettyRequestDispatcher(this, filterChain);

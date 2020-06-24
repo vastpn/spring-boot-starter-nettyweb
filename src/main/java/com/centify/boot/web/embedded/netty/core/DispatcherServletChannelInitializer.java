@@ -39,8 +39,7 @@ public class DispatcherServletChannelInitializer extends ChannelInitializer<Sock
         channel.pipeline()
                 /**读取超时*/
                 .addLast("RTimeout",new ReadTimeoutHandler(1))
-                /**写入超时*/
-                .addLast("WTimeout",new WriteTimeoutHandler(1))
+
                 /**转码*/
                 .addLast("HttpCodec",new HttpServerCodec())
                 /**请求数据粘包设置*/
@@ -53,7 +52,9 @@ public class DispatcherServletChannelInitializer extends ChannelInitializer<Sock
                 /**FullHttpRequest转换为MockHttpServletRequest*/
 //                .addLast("MockTransform", new FullHttpTransformServletHandler(servletContext))
                 /**转交给SpringMVC dispatcherServlet 处理业务逻辑，可正常使用Spring RestController 等注解*/
-                .addLast( "DispatcherServlet", new DispatcherServletHandler(servletContext));
+                .addLast( "DispatcherServlet", new DispatcherServletHandler(servletContext))
+                /**写入超时*/
+                .addLast("WTimeout",new WriteTimeoutHandler(1));
 
     }
 

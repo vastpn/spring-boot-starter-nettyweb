@@ -35,13 +35,14 @@ public class NettyFilterRegistration extends AbstractNettyRegistration implement
         if (!initialised) {
             synchronized (this) {
                 if (!initialised) {
-                    if (null == filter) {
-                        try {
-                            filter = (Filter) Class.forName(getClassName()).newInstance();
-                        } catch (Exception e) {
-                            return null;
-                        }
-                    }
+                    /*filter 必定存在，取消判断*/
+//                    if (null == filter) {
+//                        try {
+//                            filter = (Filter) Class.forName(getClassName()).newInstance();
+//                        } catch (Exception e) {
+//                            return null;
+//                        }
+//                    }
                     try {
                         filter.init(this);
                     } catch (ServletException e) {

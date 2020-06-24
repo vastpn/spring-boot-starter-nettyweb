@@ -151,10 +151,8 @@ public final class NettyChannelUtil {
 
         UriComponents uriComponents = UriComponentsBuilder.fromUriString(fullHttpRequest.uri()).build();
 
-        MockHttpServletRequest servletRequest = new MockHttpServletRequest(servletContext);
-        servletRequest.setRequestURI(uriComponents.getPath());
+        MockHttpServletRequest servletRequest = new MockHttpServletRequest(servletContext,fullHttpRequest.method().name(),uriComponents.getPath());
         servletRequest.setPathInfo(uriComponents.getPath());
-        servletRequest.setMethod(fullHttpRequest.getMethod().name());
 
         if (uriComponents.getScheme() != null) {
             servletRequest.setScheme(uriComponents.getScheme());
