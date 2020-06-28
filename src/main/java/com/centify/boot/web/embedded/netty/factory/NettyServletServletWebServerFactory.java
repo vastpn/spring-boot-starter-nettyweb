@@ -86,7 +86,7 @@ public class NettyServletServletWebServerFactory extends AbstractServletWebServe
         InetSocketAddress address = new InetSocketAddress(port);
         log.info("Server initialized with port: {}" ,port);
         /**初始化容器并返回*/
-        return new NettyContainer(address);
+        return new NettyContainer(address,context);
     }
 
     private void dispatcherServletInit() throws ServletException {

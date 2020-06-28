@@ -45,11 +45,11 @@ public class NettyContainer implements WebServer {
     /**Netty所需的线程池，分别用于接收/监听请求以及处理请求读写*/
     private EventLoopGroup acceptGroup;
     private EventLoopGroup workerGroup;
-    /**Netty 业务处理线程组，暂未使用*/
-    private DefaultEventExecutorGroup servletExecutor;
+    private ServletContext context;
 
-    public NettyContainer(InetSocketAddress address) {
+    public NettyContainer(InetSocketAddress address, ServletContext context) {
         this.address = address;
+        this.context = context;
     }
 
     @Override
@@ -70,7 +70,7 @@ public class NettyContainer implements WebServer {
                     /*是否允许端口占用*/
                     .option(ChannelOption.SO_REUSEADDR, Boolean.TRUE)
                     /*设置可处理队列数量*/
-                    .option(ChannelOption.SO_BACKLOG, 4096)
+                    .option(ChannelOption.SO_BACKLOG, 128)
                     /*ByteBuf重用缓冲区*/
                     .option(ChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
                     .childOption(ChannelOption.SO_KEEPALIVE, Boolean.TRUE)
@@ -86,7 +86,7 @@ public class NettyContainer implements WebServer {
                     .childOption(NioChannelOption.SO_SNDBUF, 16*1024)
                     /*设置ByteBuf重用缓冲区*/
                     .childOption(NioChannelOption.ALLOCATOR, PooledByteBufAllocator.DEFAULT)
-                    .childHandler(new DispatcherServletChannelInitializer());
+                    .childHandler(new DispatcherServletChannelInitializer(context));
 
             /**绑定端口，并打印端口信息*/
             ChannelFuture channelFuture = bootstrap.bind(address).syncUninterruptibly().addListener(future -> {
@@ -134,9 +134,6 @@ public class NettyContainer implements WebServer {
             }
             if (null != workerGroup) {
                 workerGroup.shutdownGracefully().await();
-            }
-            if (null != servletExecutor) {
-                servletExecutor.shutdownGracefully().await();
             }
         } catch (InterruptedException e) {
             throw new WebServerException("Container stop interrupted", e);

@@ -2,6 +2,7 @@ package com.centify.boot.web.embedded.netty.core;
 
 import com.centify.boot.web.embedded.netty.utils.NettyChannelUtil;
 import com.centify.boot.web.embedded.netty.utils.SpringContextUtil;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -11,6 +12,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.DispatcherServlet;
+
+import javax.servlet.ServletContext;
 
 /**
  * <pre>
@@ -28,9 +31,12 @@ import org.springframework.web.servlet.DispatcherServlet;
  * <pre>
  */
 @Log4j2
-@Component
 @ChannelHandler.Sharable
 public class DispatcherServletHandler extends SimpleChannelInboundHandler<MockHttpServletRequest> {
+	private ServletContext context;
+	public DispatcherServletHandler(ServletContext context) {
+		this.context = context;
+	}
 
 	@Override
 	protected void channelRead0(ChannelHandlerContext chc, MockHttpServletRequest rrw) throws Exception {
@@ -40,11 +46,11 @@ public class DispatcherServletHandler extends SimpleChannelInboundHandler<MockHt
 		SpringContextUtil.getApplication().getBean(DispatcherServlet.class)
 				.service(rrw, servletResponse);
 
-		NettyChannelUtil.sendResult(
+		NettyChannelUtil.sendResultByteBuf(
 				chc,
 				HttpResponseStatus.valueOf(servletResponse.getStatus()),
 				rrw,
-				servletResponse.getContentAsByteArray()
+				Unpooled.wrappedBuffer(servletResponse.getContentAsByteArray())
 		);
 	}
 

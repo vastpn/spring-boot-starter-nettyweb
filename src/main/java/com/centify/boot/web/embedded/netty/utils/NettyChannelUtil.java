@@ -7,8 +7,13 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http.multipart.DefaultHttpDataFactory;
+import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
+import io.netty.handler.codec.http.multipart.InterfaceHttpData;
+import io.netty.handler.codec.http.multipart.MemoryAttribute;
 import io.netty.util.CharsetUtil;
 import io.netty.util.ReferenceCountUtil;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -16,6 +21,7 @@ import org.springframework.web.util.UriUtils;
 
 import javax.servlet.ServletContext;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * <pre>
@@ -50,16 +56,16 @@ public final class NettyChannelUtil {
      * @return void
      * <pre>
      */
-    public static void sendResult(ChannelHandlerContext chc, HttpResponseStatus status, Object request, byte[] result) {
+    public static void sendResultBytes(ChannelHandlerContext chc, HttpResponseStatus status, Object request, byte[] result) {
         ByteBuf content = null;
-        if (result == null){
+        if (result == null) {
             Unpooled.wrappedBuffer("".getBytes());
-        }else {
+        } else {
             content = Unpooled.wrappedBuffer(result);
         }
         FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status, content);
         /**设置头信息的的MIME类型*/
-        response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json;utf-8");
+        response.headers().set(HttpHeaderNames.CONTENT_TYPE, MediaType.APPLICATION_JSON_UTF8_VALUE);
         /**设置要返回的内容长度*/
         response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.readableBytes());
         /**返回客户端并监听关闭*/
@@ -87,12 +93,26 @@ public final class NettyChannelUtil {
      * @return void
      * <pre>
      */
-    public static void sendResult(ChannelHandlerContext chc, HttpResponseStatus status, Object request, Object result) {
+    public static void sendResultObject(ChannelHandlerContext chc, HttpResponseStatus status, Object request, Object result) {
         ByteBuf content = Unpooled.wrappedBuffer(JSONObject.toJSONString(result).getBytes(CharsetUtil.UTF_8));
 
         FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status, content);
         /**设置头信息的的MIME类型*/
-        response.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json;utf-8");
+        response.headers().set(HttpHeaderNames.CONTENT_TYPE, MediaType.APPLICATION_JSON_UTF8_VALUE);
+        /**设置要返回的内容长度*/
+        response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.readableBytes());
+        /**返回客户端并监听关闭*/
+        chc.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+        /**释放从InBound里读取的ByteBuf*/
+        if (request != null) {
+            ReferenceCountUtil.release(request);
+        }
+    }
+
+    public static void sendResultByteBuf(ChannelHandlerContext chc, HttpResponseStatus status, Object request, ByteBuf content) {
+        FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status, content);
+        /**设置头信息的的MIME类型*/
+        response.headers().set(HttpHeaderNames.CONTENT_TYPE, MediaType.APPLICATION_JSON_UTF8_VALUE);
         /**设置要返回的内容长度*/
         response.headers().set(HttpHeaderNames.CONTENT_LENGTH, content.readableBytes());
         /**返回客户端并监听关闭*/
@@ -114,14 +134,13 @@ public final class NettyChannelUtil {
      * @return org.springframework.mock.web.MockHttpServletRequest
      * <pre>
      */
-    public static MockHttpServletRequest createServletRequest(FullHttpRequest fullHttpRequest) {
+    public static MockHttpServletRequest createServletRequest(ServletContext servletContext,
+                                                              FullHttpRequest fullHttpRequest) {
 
         UriComponents uriComponents = UriComponentsBuilder.fromUriString(fullHttpRequest.uri()).build();
 
-        MockHttpServletRequest servletRequest = new MockHttpServletRequest();
-        servletRequest.setRequestURI(uriComponents.getPath());
+        MockHttpServletRequest servletRequest = new MockHttpServletRequest(servletContext,fullHttpRequest.method().name(),uriComponents.getPath());
         servletRequest.setPathInfo(uriComponents.getPath());
-        servletRequest.setMethod(fullHttpRequest.method().name());
 
         if (uriComponents.getScheme() != null) {
             servletRequest.setScheme(uriComponents.getScheme());
@@ -133,18 +152,47 @@ public final class NettyChannelUtil {
             servletRequest.setServerPort(uriComponents.getPort());
         }
 
-        Optional.ofNullable(fullHttpRequest.headers().names())
-                .ifPresent((headers) -> {
-                    headers.parallelStream().forEach((item) -> {
-                        servletRequest.addHeader(item, fullHttpRequest.headers().get(item));
-                    });
-                });
 
-        servletRequest.setContent(ByteBufUtil.getBytes(fullHttpRequest.content()));
+        /**header 参数信息*/
+        setRequestHeader(fullHttpRequest, servletRequest);
 
+        setRequestParams(fullHttpRequest, servletRequest, uriComponents);
+
+        return servletRequest;
+    }
+
+    private static void setRequestParams(FullHttpRequest fullHttpRequest, MockHttpServletRequest servletRequest, UriComponents uriComponents) {
+        /*URL 转码 */
         if (uriComponents.getQuery() != null) {
             servletRequest.setQueryString(UriUtils.decode(uriComponents.getQuery(), CharsetUtil.UTF_8));
         }
+        if (HttpMethod.GET.equals(fullHttpRequest.method())) {
+            innerGetParams(servletRequest, uriComponents);
+        } else if (HttpMethod.POST.equals(fullHttpRequest.method())) {
+            innerPostParams(fullHttpRequest, servletRequest);
+        } else if (HttpMethod.DELETE.equals(fullHttpRequest.method())) {
+        }
+    }
+
+    private static void innerPostParams(FullHttpRequest fullHttpRequest, MockHttpServletRequest servletRequest) {
+        Optional.ofNullable(fullHttpRequest.headers().get("Content-Type").trim().toLowerCase())
+                .ifPresent(item -> {
+                    if (item.contains("multipart/form-data") || item.contains("application/x-www-form-urlencoded")) {
+                        HttpPostRequestDecoder decoder = new HttpPostRequestDecoder(new DefaultHttpDataFactory(false), fullHttpRequest);
+                        servletRequest.setParameters(decoder.getBodyHttpDatas().parallelStream()
+                                .filter((data) -> data.getHttpDataType().equals(InterfaceHttpData.HttpDataType.Attribute))
+                                .map((convData) -> (MemoryAttribute) convData)
+                                .collect(Collectors.toMap(
+                                        MemoryAttribute::getName,
+                                        MemoryAttribute::getValue,
+                                        (key1, key2) -> key2)));
+                    } else if (item.contains("application/json")) {
+                        servletRequest.setContent(ByteBufUtil.getBytes(fullHttpRequest.content()));
+                    }
+                });
+    }
+
+    private static void innerGetParams(MockHttpServletRequest servletRequest, UriComponents uriComponents) {
         Optional.ofNullable(uriComponents.getQueryParams().entrySet())
                 .ifPresent((entrys) -> {
                     entrys.parallelStream().forEach((entry) -> {
@@ -155,6 +203,29 @@ public final class NettyChannelUtil {
                         });
                     });
                 });
-        return servletRequest;
+    }
+
+    private static void setRequestHeader(FullHttpRequest fullHttpRequest, MockHttpServletRequest servletRequest) {
+        Optional.ofNullable(fullHttpRequest.headers().names())
+                .ifPresent((headers) -> {
+                    headers.parallelStream().forEach((item) -> {
+                        servletRequest.addHeader(item, fullHttpRequest.headers().get(item));
+                    });
+                });
+    }
+
+    private static void setRequestInfo(FullHttpRequest fullHttpRequest, UriComponents uriComponents, MockHttpServletRequest servletRequest) {
+        servletRequest.setRequestURI(uriComponents.getPath());
+        servletRequest.setPathInfo(uriComponents.getPath());
+
+        if (uriComponents.getScheme() != null) {
+            servletRequest.setScheme(uriComponents.getScheme());
+        }
+        if (uriComponents.getHost() != null) {
+            servletRequest.setServerName(uriComponents.getHost());
+        }
+        if (uriComponents.getPort() != -1) {
+            servletRequest.setServerPort(uriComponents.getPort());
+        }
     }
 }

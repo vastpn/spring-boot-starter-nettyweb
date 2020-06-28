@@ -8,10 +8,12 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.util.ReferenceCountUtil;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Component;
 
+import javax.servlet.ServletContext;
 import java.net.InetSocketAddress;
 
 /**
@@ -29,21 +31,22 @@ import java.net.InetSocketAddress;
  * <pre>
  */
 @Log4j2
-@Component
 @ChannelHandler.Sharable
 public class FaviconHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+    private ServletContext context;
+    public FaviconHandler(ServletContext context) {
+        this.context = context;
+    }
+
     @Override
     protected void channelRead0(ChannelHandlerContext chc, FullHttpRequest fullHttpRequest) throws Exception {
 //        System.out.println("1");
-        /**验证解码*/
-        if (!fullHttpRequest.decoderResult().isSuccess()) {
-            NettyChannelUtil.sendResult(chc, HttpResponseStatus.BAD_REQUEST, fullHttpRequest, null);
-            return;
-        }
-        //TODO 后期支持 YML配置 动态启用、禁用 /favicon.ico 请求
-        if(NettyConstant.HTTP_REQUEST_FAVICON.equalsIgnoreCase(fullHttpRequest.uri())){
+        /**解码失败或者FAVICON 均不返回*/
+        if (!fullHttpRequest.decoderResult().isSuccess()
+                ||NettyConstant.HTTP_REQUEST_FAVICON.equalsIgnoreCase(fullHttpRequest.uri())) {
             chc.close();
-            return ;
+            ReferenceCountUtil.release(fullHttpRequest);
+            return;
         }
         chc.fireChannelRead(fullHttpRequest);
     }

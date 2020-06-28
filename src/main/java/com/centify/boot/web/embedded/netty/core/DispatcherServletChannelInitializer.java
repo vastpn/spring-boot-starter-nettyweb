@@ -36,17 +36,17 @@ import javax.servlet.ServletException;
 public class DispatcherServletChannelInitializer extends ChannelInitializer<SocketChannel> {
     /**请求粘包最大长度（256KB）*/
     private static final Integer REQUEST_DATA_MAXCONTENTLENGTH = 256 * 1024;
-    public DispatcherServletChannelInitializer() {
+
+    private ServletContext context;
+
+    public DispatcherServletChannelInitializer(ServletContext context) {
+        this.context = context;
     }
 
     @Override
     public void initChannel(SocketChannel channel) throws Exception {
         /**必须第一步对通信数据进行编解码 (已包含HttpRequestDecoder/HttpResponseEncoder)*/
         channel.pipeline()
-                /**读取超时*/
-                .addLast("RTimeout",new ReadTimeoutHandler(1))
-                /**写入超时*/
-                .addLast("WTimeout",new WriteTimeoutHandler(1))
                 /**转码*/
                 .addLast("HttpCodec",new HttpServerCodec())
                 /**请求数据粘包设置*/
@@ -55,11 +55,11 @@ public class DispatcherServletChannelInitializer extends ChannelInitializer<Sock
                 .addLast("ChunkedWrite",new ChunkedWriteHandler())
 
                 /**过滤 favicon.ico 请求*/
-                .addLast("Favicon",SpringContextUtil.getApplication().getBean(FaviconHandler.class))
+                .addLast("Favicon",new FaviconHandler(context))
                 /**FullHttpRequest转换为MockHttpServletRequest*/
-                .addLast("MockTransform", new MockTransformFullHttpHandler())
+                .addLast("MockTransform", new MockTransformFullHttpHandler(context))
                 /**转交给SpringMVC dispatcherServlet 处理业务逻辑，可正常使用Spring RestController 等注解*/
-                .addLast( "DispatcherServlet", SpringContextUtil.getApplication().getBean(DispatcherServletHandler.class));
+                .addLast( "DispatcherServlet", new DispatcherServletHandler(context));
 
     }
 

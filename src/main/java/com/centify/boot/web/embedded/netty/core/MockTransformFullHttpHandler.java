@@ -28,14 +28,17 @@ import java.net.InetSocketAddress;
  * <pre>
  */
 @Log4j2
-@Component
 @ChannelHandler.Sharable
 public class MockTransformFullHttpHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+    private ServletContext context;
+    public MockTransformFullHttpHandler(ServletContext context) {
+        this.context = context;
+    }
 
     @Override
     protected void channelRead0(ChannelHandlerContext chc, FullHttpRequest fullHttpRequest) throws Exception {
 //        System.out.println("2");
-        chc.fireChannelRead(NettyChannelUtil.createServletRequest(fullHttpRequest));
+        chc.fireChannelRead(NettyChannelUtil.createServletRequest(context,fullHttpRequest));
     }
 
     /**
